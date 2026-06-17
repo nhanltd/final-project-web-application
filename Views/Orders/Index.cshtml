@@ -1,0 +1,252 @@
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống Quản lý Đơn hàng - Order Management System</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Stylesheet from wwwroot -->
+    <link rel="stylesheet" href="~/css/styles.css" asp-append-version="true">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar / Brand -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo-icon">
+                    <i data-lucide="shopping-bag"></i>
+                </div>
+                <div>
+                    <h2>OrderAdmin</h2>
+                    <p>Mini Project (MVC & LINQ)</p>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" id="btn-nav-dashboard">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard & Orders</span>
+                </a>
+            </nav>
+
+            <!-- Active LINQ Code Box in Sidebar -->
+            <div class="linq-panel">
+                <div class="linq-panel-header">
+                    <div class="header-title">
+                        <i data-lucide="code-2"></i>
+                        <span>Truy vấn LINQ hoạt động</span>
+                    </div>
+                    <span class="pulse-indicator"></span>
+                </div>
+                <div class="linq-panel-body">
+                    <div class="linq-description" id="linq-desc">Đang tải dữ liệu...</div>
+                    <pre><code class="language-csharp" id="linq-code">// LINQ Code will appear here</code></pre>
+                </div>
+            </div>
+            
+            <div class="sidebar-footer">
+                <p>Môn học: Phát triển Web</p>
+                <small>Framework: ASP.NET Core MVC 10.0</small>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="welcome-text">
+                    <h1>Hệ thống Quản lý Đơn hàng</h1>
+                    <p id="current-time">Thứ Tư, 17 Tháng 6, 2026</p>
+                </div>
+                <div class="top-bar-actions">
+                    <button class="btn btn-primary" id="btn-open-create-modal">
+                        <i data-lucide="plus-circle"></i>
+                        <span>Tạo Đơn Hàng Mới</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Dashboard Statistics Cards -->
+            <section class="stats-grid">
+                <!-- Total Revenue Card -->
+                <div class="stat-card revenue-card" onclick="highlightLinq('revenue')">
+                    <div class="stat-icon">
+                        <i data-lucide="dollar-sign"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Tổng Doanh Thu</h3>
+                        <p class="stat-value" id="stat-total-revenue">0 ₫</p>
+                        <p class="stat-label">Chỉ tính đơn hàng <span class="badge badge-completed">Completed</span></p>
+                    </div>
+                    <div class="stat-action-hint">
+                        <i data-lucide="info" title="Xem LINQ Sum()"></i>
+                    </div>
+                </div>
+
+                <!-- Total Orders Card -->
+                <div class="stat-card" onclick="highlightLinq('all')">
+                    <div class="stat-icon">
+                        <i data-lucide="shopping-cart"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Tổng Số Đơn Hàng</h3>
+                        <p class="stat-value" id="stat-total-orders">0</p>
+                        <p class="stat-label">Tất cả trạng thái</p>
+                    </div>
+                    <div class="stat-action-hint">
+                        <i data-lucide="info" title="Xem LINQ GetList()"></i>
+                    </div>
+                </div>
+
+                <!-- Status Statistics Breakdown -->
+                <div class="stat-card stats-breakdown" onclick="highlightLinq('statistics')">
+                    <h3>Trạng thái Đơn hàng</h3>
+                    <div class="progress-bar-group" id="stats-status-group">
+                        <div class="skeleton-loader"></div>
+                    </div>
+                    <div class="stat-action-hint">
+                        <i data-lucide="info" title="Xem LINQ GroupBy()"></i>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Table Filters and Search Section -->
+            <section class="table-section">
+                <div class="table-header">
+                    <div class="search-filter-wrapper">
+                        <!-- Search Input -->
+                        <div class="search-box">
+                            <i data-lucide="search"></i>
+                            <input type="text" id="search-customer" placeholder="Tìm đơn hàng theo tên khách hàng...">
+                            <button class="btn btn-icon-clear" id="btn-clear-search" style="display: none;">
+                                <i data-lucide="x"></i>
+                            </button>
+                        </div>
+
+                        <!-- Filters -->
+                        <div class="filter-controls">
+                            <!-- Status filter dropdown -->
+                            <div class="select-wrapper">
+                                <select id="filter-status">
+                                    <option value="">Tất cả trạng thái</option>
+                                    <option value="Pending">Chờ xử lý (Pending)</option>
+                                    <option value="Processing">Đang xử lý (Processing)</option>
+                                    <option value="Completed">Hoàn thành (Completed)</option>
+                                    <option value="Cancelled">Đã hủy (Cancelled)</option>
+                                </select>
+                            </div>
+
+                            <!-- Top 5 Toggle -->
+                            <button class="btn btn-secondary" id="btn-toggle-top-5">
+                                <i data-lucide="trophy"></i>
+                                <span>Top 5 đơn giá trị nhất</span>
+                            </button>
+
+                            <!-- Reset Filters -->
+                            <button class="btn btn-icon" id="btn-reset-filters" title="Tải lại tất cả">
+                                <i data-lucide="rotate-ccw"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Orders Table -->
+                <div class="table-container">
+                    <table class="orders-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 100px;">Mã đơn</th>
+                                <th>Khách hàng</th>
+                                <th style="width: 180px;">Ngày tạo</th>
+                                <th style="width: 160px;">Tổng tiền</th>
+                                <th style="width: 160px;">Trạng thái</th>
+                                <th style="width: 180px; text-align: center;">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table-body">
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <div class="loading-spinner"></div>
+                                    <p style="margin-top: 10px; color: var(--text-muted);">Đang tải danh sách đơn hàng...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="table-footer">
+                    <span id="table-record-count">Hiển thị 0 đơn hàng</span>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Create Order Modal -->
+    <div class="modal-backdrop" id="create-order-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Tạo Đơn Hàng Mới</h2>
+                <button class="btn-close-modal" id="btn-close-create-modal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form id="create-order-form">
+                <div class="modal-body">
+                    <!-- Customer Dropdown -->
+                    <div class="form-group">
+                        <label for="customer-select">Khách hàng <span class="required">*</span></label>
+                        <div class="select-wrapper">
+                            <select id="customer-select" required>
+                                <option value="" disabled selected>Chọn khách hàng...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Total Amount Input -->
+                    <div class="form-group">
+                        <label for="order-amount">Tổng số tiền (₫) <span class="required">*</span></label>
+                        <div class="input-icon-wrapper">
+                            <i data-lucide="coins"></i>
+                            <input type="number" id="order-amount" min="1000" step="1000" placeholder="Ví dụ: 500000" required>
+                        </div>
+                    </div>
+
+                    <!-- Status Select -->
+                    <div class="form-group">
+                        <label for="order-status">Trạng thái ban đầu <span class="required">*</span></label>
+                        <div class="select-wrapper">
+                            <select id="order-status" required>
+                                <option value="Pending" selected>Pending (Chờ xử lý)</option>
+                                <option value="Processing">Processing (Đang xử lý)</option>
+                                <option value="Completed">Completed (Hoàn thành)</option>
+                                <option value="Cancelled">Cancelled (Đã hủy)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-create-modal">Hủy bỏ</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i data-lucide="check-circle-2"></i>
+                        <span>Xác nhận tạo đơn</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- App Script from wwwroot -->
+    <script src="~/js/app.js" asp-append-version="true"></script>
+</body>
+</html>
