@@ -6,11 +6,7 @@ using OrderManagementSystem.Models;
 
 namespace OrderManagementSystem.Controllers
 {
-    // For MVC, we remove [ApiController] from class level or keep it if we want API behaviors.
-    // If we keep [ApiController], returning View() will throw an exception in some cases because it thinks it should return JSON (or we can just keep it and add [HttpGet] / [Route] for Views).
-    // Actually, it's safer to remove [ApiController] and [Route("api/[controller]")] from the class level,
-    // and instead specify routes on each action method individually.
-    // This allows serving the HTML View on "/" and APIs on "/api/orders".
+   
     public class OrdersController : Controller
     {
         private readonly OrderDbContext _context;
