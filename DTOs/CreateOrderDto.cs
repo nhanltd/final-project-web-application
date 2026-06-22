@@ -4,14 +4,14 @@ namespace OrderManagementSystem.DTOs
 {
     public class CreateOrderDto
     {
-        [Required(ErrorMessage = "Mã khách hàng là bắt buộc.")]
+        [Required(ErrorMessage = "Customer ID is required.")]
         public int CustomerId { get; set; }
 
-        [Range(0.01, double.MaxValue, ErrorMessage = "Tổng số tiền phải lớn hơn 0.")]
+        [Range(0.01, double.MaxValue, ErrorMessage = "Total Amount must be greater than 0.")]
         public decimal TotalAmount { get; set; }
 
-        [Required(ErrorMessage = "Trạng thái đơn hàng là bắt buộc.")]
-        [RegularExpression("^(Pending|Processing|Completed|Cancelled)$", ErrorMessage = "Trạng thái không hợp lệ. Phải là: Pending, Processing, Completed, Cancelled.")]
+        [Required(ErrorMessage = "Order Status is required.")]
+        [RegularExpression("^(Pending|Processing|Completed|Cancelled)$", ErrorMessage = "Invalid Status. Must be: Pending, Processing, Completed, Cancelled.")]
         public string Status { get; set; } = "Pending";
     }
 }

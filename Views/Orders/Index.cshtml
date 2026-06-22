@@ -1,249 +1,243 @@
+@model OrderManagementSystem.Models.OrdersViewModel
 @{
     Layout = null;
 }
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ thống Quản lý Đơn hàng - Order Management System</title>
+    <title>Order Management System</title>
     <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Stylesheet from wwwroot -->
-    <link rel="stylesheet" href="~/css/styles.css" asp-append-version="true">
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
-    <div class="app-container">
-        <!-- Sidebar / Brand -->
-        <aside class="sidebar">
-            <div class="brand">
-                <div class="logo-icon">
-                    <i data-lucide="shopping-bag"></i>
-                </div>
-                <div>
-                    <h2>OrderAdmin</h2>
-
-                </div>
-            </div>
-
-            <nav class="nav-menu">
-                <a href="#" class="nav-item active" id="btn-nav-dashboard">
-                    <i data-lucide="layout-dashboard"></i>
-                    <span>Dashboard & Orders</span>
-                </a>
-            </nav>
-
-            <!-- Active LINQ Code Box in Sidebar -->
-            <div class="linq-panel">
-                <div class="linq-panel-header">
-                    <div class="header-title">
-                        <i data-lucide="code-2"></i>
-                        <span>Truy vấn LINQ hoạt động</span>
-                    </div>
-                    <span class="pulse-indicator"></span>
-                </div>
-                <div class="linq-panel-body">
-                    <div class="linq-description" id="linq-desc">Đang tải dữ liệu...</div>
-                    <pre><code class="language-csharp" id="linq-code">// LINQ Code will appear here</code></pre>
-                </div>
-            </div>
-            
+    <div class="container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1>Order Management System</h1>
            
-        </aside>
+        </header>
 
-        <!-- Main Content Area -->
-        <main class="main-content">
-            <!-- Top Bar -->
-            <header class="top-bar">
-                <div class="welcome-text">
-                    <h1>Hệ thống Quản lý Đơn hàng</h1>
-                    <p id="current-time">Thứ Tư, 17 Tháng 6, 2026</p>
+        <!-- Notification Alerts -->
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="alert alert-success" style="padding: 10px 15px; background-color: #d1e7dd; border: 1px solid #badbcc; color: #0f5132; margin-bottom: 20px; border-radius: 4px; font-size: 0.9rem;">
+                @TempData["SuccessMessage"]
+            </div>
+        }
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="alert alert-danger" style="padding: 10px 15px; background-color: #f8d7da; border: 1px solid #f5c2c7; color: #842029; margin-bottom: 20px; border-radius: 4px; font-size: 0.9rem;">
+                @TempData["ErrorMessage"]
+            </div>
+        }
+
+        <!-- Overview Statistics Section -->
+        <section class="summary-section">
+            <a href="/Orders" class="summary-box" style="text-decoration: none; color: inherit;">
+                <span class="summary-title">Total Orders</span>
+                <strong>@Model.TotalOrders</strong>
+            </a>
+            <a href="/Orders?highlightLinqKey=revenue" class="summary-box" style="text-decoration: none; color: inherit;">
+                <span class="summary-title">Total Revenue (Completed)</span>
+                <strong class="text-success">@Model.TotalRevenue.ToString("N0") ₫</strong>
+            </a>
+            <a href="/Orders?highlightLinqKey=statistics" class="summary-box" style="text-decoration: none; color: inherit;">
+                <span class="summary-title">Status Breakdown (GroupBy)</span>
+                <div class="status-summary-list">
+                    <span class="status-summary-item">Pending: @Model.StatusStats["Pending"]</span>
+                    <span class="status-summary-item">Processing: @Model.StatusStats["Processing"]</span>
+                    <span class="status-summary-item">Completed: @Model.StatusStats["Completed"]</span>
+                    <span class="status-summary-item">Cancelled: @Model.StatusStats["Cancelled"]</span>
                 </div>
-                <div class="top-bar-actions">
-                    <button class="btn btn-primary" id="btn-open-create-modal">
-                        <i data-lucide="plus-circle"></i>
-                        <span>Tạo Đơn Hàng Mới</span>
+            </a>
+        </section>
+
+        <!-- Main Workspace (Grid Layout) -->
+        <div class="main-layout">
+            <!-- Left Column: Orders List Table -->
+            <div class="content-card">
+                <div class="card-header">
+                    <h2>Order List</h2>
+                    <button class="btn btn-success" id="btn-open-create-modal">
+                        + Create New Order
                     </button>
                 </div>
-            </header>
 
-            <!-- Dashboard Statistics Cards -->
-            <section class="stats-grid">
-                <!-- Total Revenue Card -->
-                <div class="stat-card revenue-card" onclick="highlightLinq('revenue')">
-                    <div class="stat-icon">
-                        <i data-lucide="dollar-sign"></i>
-                    </div>
-                    <div class="stat-info">
-                        <h3>Tổng Doanh Thu</h3>
-                        <p class="stat-value" id="stat-total-revenue">0 ₫</p>
-                        <p class="stat-label">Chỉ tính đơn hàng <span class="badge badge-completed">Completed</span></p>
-                    </div>
-                    <div class="stat-action-hint">
-                        <i data-lucide="info" title="Xem LINQ Sum()"></i>
-                    </div>
-                </div>
-
-                <!-- Total Orders Card -->
-                <div class="stat-card" onclick="highlightLinq('all')">
-                    <div class="stat-icon">
-                        <i data-lucide="shopping-cart"></i>
-                    </div>
-                    <div class="stat-info">
-                        <h3>Tổng Số Đơn Hàng</h3>
-                        <p class="stat-value" id="stat-total-orders">0</p>
-                        <p class="stat-label">Tất cả trạng thái</p>
-                    </div>
-                    <div class="stat-action-hint">
-                        <i data-lucide="info" title="Xem LINQ GetList()"></i>
-                    </div>
-                </div>
-
-                <!-- Status Statistics Breakdown -->
-                <div class="stat-card stats-breakdown" onclick="highlightLinq('statistics')">
-                    <h3>Trạng thái Đơn hàng</h3>
-                    <div class="progress-bar-group" id="stats-status-group">
-                        <div class="skeleton-loader"></div>
-                    </div>
-                    <div class="stat-action-hint">
-                        <i data-lucide="info" title="Xem LINQ GroupBy()"></i>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Table Filters and Search Section -->
-            <section class="table-section">
-                <div class="table-header">
-                    <div class="search-filter-wrapper">
-                        <!-- Search Input -->
-                        <div class="search-box">
-                            <i data-lucide="search"></i>
-                            <input type="text" id="search-customer" placeholder="Tìm đơn hàng theo tên khách hàng...">
-                            <button class="btn btn-icon-clear" id="btn-clear-search" style="display: none;">
-                                <i data-lucide="x"></i>
-                            </button>
+                <!-- Search and Filters Form -->
+                <div class="filter-bar">
+                    <form method="get" action="/Orders" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; width: 100%;">
+                        <div class="form-group-inline" style="flex: 2; min-width: 180px;">
+                            <input type="text" name="searchString" value="@Model.SearchString" placeholder="Search by customer name...">
                         </div>
-
-                        <!-- Filters -->
-                        <div class="filter-controls">
-                            <!-- Status filter dropdown -->
-                            <div class="select-wrapper">
-                                <select id="filter-status">
-                                    <option value="">Tất cả trạng thái</option>
-                                    <option value="Pending">Chờ xử lý (Pending)</option>
-                                    <option value="Processing">Đang xử lý (Processing)</option>
-                                    <option value="Completed">Hoàn thành (Completed)</option>
-                                    <option value="Cancelled">Đã hủy (Cancelled)</option>
-                                </select>
-                            </div>
-
-                            <!-- Top 5 Toggle -->
-                            <button class="btn btn-secondary" id="btn-toggle-top-5">
-                                <i data-lucide="trophy"></i>
-                                <span>Top 5 đơn giá trị nhất</span>
-                            </button>
-
-                            <!-- Reset Filters -->
-                            <button class="btn btn-icon" id="btn-reset-filters" title="Tải lại tất cả">
-                                <i data-lucide="rotate-ccw"></i>
-                            </button>
+                        <div class="form-group-inline" style="flex: 1; min-width: 150px;">
+                            <select name="statusFilter" onchange="this.form.submit()">
+                                <option value="">-- All Statuses --</option>
+                                <option value="Pending" selected="@(Model.StatusFilter == "Pending" ? "selected" : null)">Pending</option>
+                                <option value="Processing" selected="@(Model.StatusFilter == "Processing" ? "selected" : null)">Processing</option>
+                                <option value="Completed" selected="@(Model.StatusFilter == "Completed" ? "selected" : null)">Completed</option>
+                                <option value="Cancelled" selected="@(Model.StatusFilter == "Cancelled" ? "selected" : null)">Cancelled</option>
+                            </select>
                         </div>
-                    </div>
+                        <button type="submit" class="btn btn-primary">Search</button>
+                        
+                        @if (Model.ShowTop5)
+                        {
+                            <a href="/Orders" class="btn btn-primary active">Clear Top 5</a>
+                        }
+                        else
+                        {
+                            <a href="/Orders?showTop5=true" class="btn btn-primary">Top 5 Orders</a>
+                        }
+                        
+                        <a href="/Orders" class="btn btn-secondary">Reset</a>
+                    </form>
                 </div>
 
                 <!-- Orders Table -->
-                <div class="table-container">
+                <div class="table-responsive">
                     <table class="orders-table">
                         <thead>
                             <tr>
-                                <th style="width: 100px;">Mã đơn</th>
-                                <th>Khách hàng</th>
-                                <th style="width: 180px;">Ngày tạo</th>
-                                <th style="width: 160px;">Tổng tiền</th>
-                                <th style="width: 160px;">Trạng thái</th>
-                                <th style="width: 180px; text-align: center;">Thao tác</th>
+                                <th style="width: 80px;">Order ID</th>
+                                <th>Customer</th>
+                                <th>Order Date</th>
+                                <th>Total Amount</th>
+                                <th>Status</th>
+                                <th style="width: 250px; text-align: center;">Actions</th>
                             </tr>
                         </thead>
-                        <tbody id="orders-table-body">
-                            <tr>
-                                <td colspan="6" class="text-center py-5">
-                                    <div class="loading-spinner"></div>
-                                    <p style="margin-top: 10px; color: var(--text-muted);">Đang tải danh sách đơn hàng...</p>
-                                </td>
-                            </tr>
+                        <tbody>
+                            @if (Model.Orders.Count == 0)
+                            {
+                                <tr>
+                                    <td colspan="6" class="text-center py-5">No orders found.</td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var order in Model.Orders)
+                                {
+                                    <tr>
+                                        <td><span class="order-id-badge">#@order.Id</span></td>
+                                        <td>
+                                            <div class="customer-name-cell">@order.CustomerName</div>
+                                            <div style="font-size: 0.75rem; color: var(--text-secondary);">Customer ID: #@order.CustomerId</div>
+                                        </td>
+                                        <td>
+                                            <div>@order.OrderDate.ToLocalTime().ToString("MM/dd/yyyy")</div>
+                                            <div style="font-size: 0.75rem; color: var(--text-secondary);">@order.OrderDate.ToLocalTime().ToString("hh:mm tt")</div>
+                                        </td>
+                                        <td><span class="order-amount-cell">@order.TotalAmount.ToString("N0") ₫</span></td>
+                                        <td>
+                                            <span class="badge badge-@order.Status.ToLower()">@order.Status</span>
+                                        </td>
+                                        <td>
+                                            <div class="status-actions-cell">
+                                                <!-- Change Status Form POST -->
+                                                <form method="post" action="/Orders/UpdateStatus" style="display:inline;">
+                                                    <input type="hidden" name="id" value="@order.Id" />
+                                                    <select name="status" onchange="this.form.submit()" class="btn-status-change" style="padding: 4px 6px; font-size: 0.8rem;">
+                                                        <option value="Pending" selected="@(order.Status == "Pending" ? "selected" : null)">Pending</option>
+                                                        <option value="Processing" selected="@(order.Status == "Processing" ? "selected" : null)">Processing</option>
+                                                        <option value="Completed" selected="@(order.Status == "Completed" ? "selected" : null)">Completed</option>
+                                                        <option value="Cancelled" selected="@(order.Status == "Cancelled" ? "selected" : null)">Cancelled</option>
+                                                    </select>
+                                                </form>
+
+                                                <!-- Delete Order Form POST -->
+                                                <form method="post" action="/Orders/Delete" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete order #@order.Id?')">
+                                                    <input type="hidden" name="id" value="@order.Id" />
+                                                    <button type="submit" class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;">Delete</button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
                         </tbody>
                     </table>
                 </div>
-
-                <div class="table-footer">
-                    <span id="table-record-count">Hiển thị 0 đơn hàng</span>
+                
+                <div class="card-footer">
+                    <span>Showing: @Model.Orders.Count order(s)</span>
                 </div>
-            </section>
-        </main>
+            </div>
+
+            <!-- Right Column: Active LINQ query display -->
+            <div class="linq-card">
+                <div class="linq-card-header">
+                    <h3>Corresponding LINQ Query</h3>
+                </div>
+                <div class="linq-card-body">
+                    <p class="linq-desc">@Model.ActiveLinqDesc</p>
+                    <pre><code>@Model.ActiveLinqCode</code></pre>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Create Order Modal -->
     <div class="modal-backdrop" id="create-order-modal">
         <div class="modal">
             <div class="modal-header">
-                <h2>Tạo Đơn Hàng Mới</h2>
-                <button class="btn-close-modal" id="btn-close-create-modal">
-                    <i data-lucide="x"></i>
-                </button>
+                <h3>Create New Order</h3>
+                <button class="btn-close" id="btn-close-create-modal">&times;</button>
             </div>
-            <form id="create-order-form">
+            <form method="post" action="/Orders/Create">
                 <div class="modal-body">
-                    <!-- Customer Dropdown -->
                     <div class="form-group">
-                        <label for="customer-select">Khách hàng <span class="required">*</span></label>
-                        <div class="select-wrapper">
-                            <select id="customer-select" required>
-                                <option value="" disabled selected>Chọn khách hàng...</option>
-                            </select>
-                        </div>
+                        <label for="customer-select">Select Customer <span class="required">*</span></label>
+                        <select name="customerId" id="customer-select" required>
+                            <option value="" disabled selected>-- Select Customer --</option>
+                            @foreach (var c in Model.Customers)
+                            {
+                                <option value="@c.Id">@c.Name (@c.Email)</option>
+                            }
+                        </select>
                     </div>
 
-                    <!-- Total Amount Input -->
                     <div class="form-group">
-                        <label for="order-amount">Tổng số tiền (₫) <span class="required">*</span></label>
-                        <div class="input-icon-wrapper">
-                            <i data-lucide="coins"></i>
-                            <input type="number" id="order-amount" min="1000" step="1000" placeholder="Ví dụ: 500000" required>
-                        </div>
+                        <label for="order-amount">Total Amount (VNĐ) <span class="required">*</span></label>
+                        <input type="number" name="totalAmount" id="order-amount" min="1000" step="1000" placeholder="Enter amount..." required>
                     </div>
 
-                    <!-- Status Select -->
                     <div class="form-group">
-                        <label for="order-status">Trạng thái ban đầu <span class="required">*</span></label>
-                        <div class="select-wrapper">
-                            <select id="order-status" required>
-                                <option value="Pending" selected>Pending (Chờ xử lý)</option>
-                                <option value="Processing">Processing (Đang xử lý)</option>
-                                <option value="Completed">Completed (Hoàn thành)</option>
-                                <option value="Cancelled">Cancelled (Đã hủy)</option>
-                            </select>
-                        </div>
+                        <label for="order-status">Initial Status <span class="required">*</span></label>
+                        <select name="status" id="order-status" required>
+                            <option value="Pending" selected>Pending</option>
+                            <option value="Processing">Processing</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" id="btn-cancel-create-modal">Hủy bỏ</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i data-lucide="check-circle-2"></i>
-                        <span>Xác nhận tạo đơn</span>
-                    </button>
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-create-modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Save Order</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Notification Toast -->
-    <div class="toast-container" id="toast-container"></div>
+    <!-- Modal visibility toggle scripts -->
+    <script>
+        const modal = document.getElementById('create-order-modal');
+        const openBtn = document.getElementById('btn-open-create-modal');
+        const closeBtn = document.getElementById('btn-close-create-modal');
+        const cancelBtn = document.getElementById('btn-cancel-create-modal');
 
-    <!-- App Script from wwwroot -->
-    <script src="~/js/app.js" asp-append-version="true"></script>
+        openBtn.addEventListener('click', () => modal.classList.add('show'));
+        
+        const closeModal = () => modal.classList.remove('show');
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+    </script>
 </body>
 </html>

@@ -23,6 +23,11 @@ namespace OrderManagementSystem.Data
                 .HasForeignKey(o => o.CustomerId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Configure decimal precision for TotalAmount
+            modelBuilder.Entity<Order>()
+                .Property(o => o.TotalAmount)
+                .HasPrecision(18, 2);
+
             // Seed Customers
             modelBuilder.Entity<Customer>().HasData(
                 new Customer { Id = 1, Name = "Nguyễn Văn A", Email = "a.nguyen@example.com" },

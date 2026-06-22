@@ -37,8 +37,7 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Đã xảy ra lỗi khi khởi tạo cơ sở dữ liệu.");
+        app.Logger.LogError(ex, "An error occurred while seeding/initializing the database.");
     }
 }
 

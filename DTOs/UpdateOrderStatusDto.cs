@@ -4,8 +4,8 @@ namespace OrderManagementSystem.DTOs
 {
     public class UpdateOrderStatusDto
     {
-        [Required(ErrorMessage = "Trạng thái đơn hàng là bắt buộc.")]
-        [RegularExpression("^(Pending|Processing|Completed|Cancelled)$", ErrorMessage = "Trạng thái không hợp lệ. Phải là: Pending, Processing, Completed, Cancelled.")]
+        [Required(ErrorMessage = "Order Status is required.")]
+        [RegularExpression("^(Pending|Processing|Completed|Cancelled)$", ErrorMessage = "Invalid Status. Must be: Pending, Processing, Completed, Cancelled.")]
         public string Status { get; set; } = string.Empty;
     }
 }
