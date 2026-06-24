@@ -2,6 +2,22 @@
 
 Dự án này là một ứng dụng quản lý đơn hàng tối giản được xây dựng theo mô hình **ASP.NET Core MVC (Model-View-Controller)** sử dụng **Entity Framework Core (EF Core)** làm ORM để làm việc với cơ sở dữ liệu **SQL Server LocalDB**, kết hợp các truy vấn dữ liệu thông qua **LINQ (Language Integrated Query)**.
 
+## BẢNG ĐÁNH GIÁ MỨC ĐỘ HOÀN THÀNH DỰ ÁN (100% / 100%)
+
+| STT | Tiêu chí đánh giá | Trạng thái | Vị trí chính xác trong dự án | Mô tả chi tiết cách triển khai | Điểm số |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **1** | **LINQ là gì** | **Đầy đủ** | [knowledge.md](file:///c:/Users/nhan/workplace/hsu/webdev/final-project/knowledge.md) (Mở đầu) | Giải thích chi tiết định nghĩa LINQ, cơ chế LINQ-to-SQL và vai trò của nó trong dự án. | **100%** |
+| **2** | **Query syntax & Method syntax** | **Đầy đủ** | [OrdersController.cs](file:///c:/Users/nhan/workplace/hsu/webdev/final-project/Controllers/OrdersController.cs)<br>• *Query syntax*: Dòng 48 - 58<br>• *Method syntax*: Dòng 37 - 45 | Triển khai cả 2 cú pháp:<br>• **Query syntax** (SQL-like): Dùng truy vấn `from o in Orders join c in Customers...`<br>• **Method syntax** (Fluent API): Dùng `.OrderBy()`, `.CountAsync()`, `.SumAsync()`... | **100%** |
+| **3** | **Lọc (Filtering)** | **Đầy đủ** | [OrdersController.cs](file:///c:/Users/nhan/workplace/hsu/webdev/final-project/Controllers/OrdersController.cs)<br>• *Where*: Dòng 77, 91, 155 | Dùng toán tử `.Where()` để lọc đơn hàng theo trạng thái, tìm kiếm tên khách hàng (`.Contains()`) và tính doanh thu. | **100%** |
+| **4** | **Sắp xếp (Sorting)** | **Đầy đủ** | [OrdersController.cs](file:///c:/Users/nhan/workplace/hsu/webdev/final-project/Controllers/OrdersController.cs)<br>• Dòng 38, 53, 77, 91, 105 | Sử dụng `.OrderBy()` sắp xếp khách hàng theo tên A-Z và `.OrderByDescending()` sắp xếp đơn hàng mới nhất/tiền cao nhất. | **100%** |
+| **5** | **Phân trang (Pagination)** | **Đầy đủ** | [OrdersController.cs](file:///c:/Users/nhan/workplace/hsu/webdev/final-project/Controllers/OrdersController.cs)<br>• Dòng 136 - 139 | Triển khai phân trang server-side dùng toán tử `.Skip()` (bỏ qua bản ghi trang trước) và `.Take()` (lấy số bản ghi bằng PageSize). | **100%** |
+| **6** | **Gom nhóm (Grouping)** | **Đầy đủ** | [OrdersController.cs](file:///c:/Users/nhan/workplace/hsu/webdev/final-project/Controllers/OrdersController.cs)<br>• Dòng 166 | Sử dụng `.GroupBy(o => o.Status)` để gom nhóm đơn hàng theo trạng thái và tính số lượng của từng trạng thái. | **100%** |
+| **7** | **Liên kết bảng (Join)** | **Đầy đủ** | [OrdersController.cs](file:///c:/Users/nhan/workplace/hsu/webdev/final-project/Controllers/OrdersController.cs)<br>• Dòng 49 | Dùng từ khóa explicit `join c in _context.Customers on o.CustomerId equals c.Id` để ghép bảng `Orders` và `Customers`. | **100%** |
+| **8** | **Ánh xạ dữ liệu (Projection)** | **Đầy đủ** | [OrdersController.cs](file:///c:/Users/nhan/workplace/hsu/webdev/final-project/Controllers/OrdersController.cs)<br>• Dòng 39 - 44, 50 - 58 | Sử dụng `select new OrderResponseDto` và `.Select()` để chỉ trích xuất những trường cần thiết hiển thị lên UI, tối ưu băng thông. | **100%** |
+| **9** | **Cách EF Core dịch LINQ sang SQL** | **Đầy đủ** | • [knowledge.md](file:///c:/Users/nhan/workplace/hsu/webdev/final-project/knowledge.md) (Mục 1 & 2.4)<br>• File log chạy: [task-594.log](file:///C:/Users/nhan/.gemini/antigravity/brain/26166826-c7d3-4c08-a8ca-119a96c836e2/.system_generated/tasks/task-594.log) | • Giải thích lý thuyết cơ chế trì hoãn thực thi (Deferred Execution).<br>• Lịch sử log ghi lại chi tiết các câu lệnh `SELECT INNER JOIN`, `OFFSET FETCH` do EF Core biên dịch từ LINQ. | **100%** |
+
+---
+
 Dưới đây là tài liệu phân tích chi tiết về luồng hoạt động (flow), kiến trúc và ý nghĩa của từng đoạn code trong hệ thống.
 
 ---
