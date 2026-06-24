@@ -162,8 +162,32 @@
                     </table>
                 </div>
                 
-                <div class="card-footer">
+                <div class="card-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                     <span>Showing: @Model.Orders.Count order(s)</span>
+                    @if (!Model.ShowTop5 && Model.TotalPages > 1)
+                    {
+                        <div class="pagination-buttons" style="display: flex; gap: 8px; align-items: center;">
+                            @if (Model.HasPreviousPage)
+                            {
+                                <a href="/Orders?pageNumber=@(Model.CurrentPage - 1)&searchString=@Model.SearchString&statusFilter=@Model.StatusFilter" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.85rem; text-decoration: none; display: inline-block;">&laquo; Previous</a>
+                            }
+                            else
+                            {
+                                <span class="btn btn-secondary disabled" style="padding: 4px 10px; font-size: 0.85rem; opacity: 0.5; pointer-events: none; display: inline-block;">&laquo; Previous</span>
+                            }
+
+                            <span style="font-size: 0.85rem;">Page <strong>@Model.CurrentPage</strong> of @Model.TotalPages</span>
+
+                            @if (Model.HasNextPage)
+                            {
+                                <a href="/Orders?pageNumber=@(Model.CurrentPage + 1)&searchString=@Model.SearchString&statusFilter=@Model.StatusFilter" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.85rem; text-decoration: none; display: inline-block;">Next &raquo;</a>
+                            }
+                            else
+                            {
+                                <span class="btn btn-secondary disabled" style="padding: 4px 10px; font-size: 0.85rem; opacity: 0.5; pointer-events: none; display: inline-block;">Next &raquo;</span>
+                            }
+                        </div>
+                    }
                 </div>
             </div>
 

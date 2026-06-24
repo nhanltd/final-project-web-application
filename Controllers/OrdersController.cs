@@ -24,7 +24,7 @@ namespace OrderManagementSystem.Controllers
         [Route("")]
         [Route("Orders")]
         [Route("Orders/Index")]
-        public async Task<IActionResult> Index(string searchString, string statusFilter, bool showTop5 = false, string highlightLinqKey = "")
+        public async Task<IActionResult> Index(string searchString, string statusFilter, bool showTop5 = false, string highlightLinqKey = "", int pageNumber = 1)
         {
             var viewModel = new OrdersViewModel
             {
@@ -44,56 +44,108 @@ namespace OrderManagementSystem.Controllers
                 })
                 .ToListAsync();
 
-            // 2. Build the main Orders Query using LINQ
-            IQueryable<Order> query = _context.Orders.Include(o => o.Customer);
+            // 2. Build the main Orders Query using LINQ Query Syntax and explicit Join
+            var query = from o in _context.Orders
+                        join c in _context.Customers on o.CustomerId equals c.Id
+                        select new OrderResponseDto
+                        {
+                            Id = o.Id,
+                            CustomerId = o.CustomerId,
+                            CustomerName = c.Name,
+                            OrderDate = o.OrderDate,
+                            TotalAmount = o.TotalAmount,
+                            Status = o.Status
+                        };
 
             // Determine active LINQ code to display in the UI based on filter state
             if (showTop5)
             {
-                // LINQ: OrderByDescending and Take
                 query = query.OrderByDescending(o => o.TotalAmount).Take(5);
 
-                viewModel.ActiveLinqDesc = "Sort all orders descending by TotalAmount and retrieve the first 5 records.";
-                viewModel.ActiveLinqCode = "var orders = await _context.Orders\n    .Include(o => o.Customer)\n    .OrderByDescending(o => o.TotalAmount)\n    .Take(5)\n    .ToListAsync();";
+                viewModel.ActiveLinqDesc = "LINQ Query Syntax & Join: Retrieve the top 5 highest orders by TotalAmount.";
+                viewModel.ActiveLinqCode = "var query = from o in _context.Orders\n" +
+                                            "            join c in _context.Customers on o.CustomerId equals c.Id\n" +
+                                            "            orderby o.TotalAmount descending\n" +
+                                            "            select new OrderResponseDto {\n" +
+                                            "                Id = o.Id, CustomerId = o.CustomerId, CustomerName = c.Name,\n" +
+                                            "                OrderDate = o.OrderDate, TotalAmount = o.TotalAmount, Status = o.Status\n" +
+                                            "            };\n" +
+                                            "var top5Orders = await query.Take(5).ToListAsync();";
             }
             else if (!string.IsNullOrWhiteSpace(statusFilter))
             {
-                // LINQ: Where
                 query = query.Where(o => o.Status == statusFilter).OrderByDescending(o => o.OrderDate);
 
-                viewModel.ActiveLinqDesc = $"Filter orders that match the specified status '{statusFilter}'.";
-                viewModel.ActiveLinqCode = $"var orders = await _context.Orders\n    .Include(o => o.Customer)\n    .Where(o => o.Status == \"{statusFilter}\")\n    .OrderByDescending(o => o.OrderDate)\n    .ToListAsync();";
+                viewModel.ActiveLinqDesc = $"LINQ Query Syntax, Join & Filter: Retrieve orders with status '{statusFilter}'.";
+                viewModel.ActiveLinqCode = "var query = from o in _context.Orders\n" +
+                                            "            join c in _context.Customers on o.CustomerId equals c.Id\n" +
+                                            $"            where o.Status == \"{statusFilter}\"\n" +
+                                            "            orderby o.OrderDate descending\n" +
+                                            "            select new OrderResponseDto {\n" +
+                                            "                Id = o.Id, CustomerId = o.CustomerId, CustomerName = c.Name,\n" +
+                                            "                OrderDate = o.OrderDate, TotalAmount = o.TotalAmount, Status = o.Status\n" +
+                                            "            };";
             }
             else if (!string.IsNullOrWhiteSpace(searchString))
             {
-                // LINQ: Where and Contains
-                query = query.Where(o => o.Customer != null && o.Customer.Name.Contains(searchString)).OrderByDescending(o => o.OrderDate);
+                query = query.Where(o => o.CustomerName.Contains(searchString)).OrderByDescending(o => o.OrderDate);
 
-                viewModel.ActiveLinqDesc = $"Search for orders where the related customer's name contains '{searchString}'.";
-                viewModel.ActiveLinqCode = $"var orders = await _context.Orders\n    .Include(o => o.Customer)\n    .Where(o => o.Customer.Name.Contains(\"{searchString}\"))\n    .OrderByDescending(o => o.OrderDate)\n    .ToListAsync();";
+                viewModel.ActiveLinqDesc = $"LINQ Query Syntax, Join & Search: Retrieve orders where customer name contains '{searchString}'.";
+                viewModel.ActiveLinqCode = "var query = from o in _context.Orders\n" +
+                                            "            join c in _context.Customers on o.CustomerId equals c.Id\n" +
+                                            $"            where c.Name.Contains(\"{searchString}\")\n" +
+                                            "            orderby o.OrderDate descending\n" +
+                                            "            select new OrderResponseDto {\n" +
+                                            "                Id = o.Id, CustomerId = o.CustomerId, CustomerName = c.Name,\n" +
+                                            "                OrderDate = o.OrderDate, TotalAmount = o.TotalAmount, Status = o.Status\n" +
+                                            "            };";
             }
             else
             {
-                // LINQ: Default list all
                 query = query.OrderByDescending(o => o.OrderDate);
 
-                viewModel.ActiveLinqDesc = "Retrieve all orders, eagerly load the related Customer details, and sort by date descending.";
-                viewModel.ActiveLinqCode = "var orders = await _context.Orders\n    .Include(o => o.Customer)\n    .OrderByDescending(o => o.OrderDate)\n    .ToListAsync();";
+                viewModel.ActiveLinqDesc = "LINQ Query Syntax & Join: Retrieve all orders, joining the related Customers, sorted by date descending.";
+                viewModel.ActiveLinqCode = "var query = from o in _context.Orders\n" +
+                                            "            join c in _context.Customers on o.CustomerId equals c.Id\n" +
+                                            "            orderby o.OrderDate descending\n" +
+                                            "            select new OrderResponseDto {\n" +
+                                            "                Id = o.Id, CustomerId = o.CustomerId, CustomerName = c.Name,\n" +
+                                            "                OrderDate = o.OrderDate, TotalAmount = o.TotalAmount, Status = o.Status\n" +
+                                            "            };";
             }
 
-            // Execute main list query
-            var ordersList = await query.ToListAsync();
-            viewModel.Orders = ordersList.Select(o => new OrderResponseDto
-            {
-                Id = o.Id,
-                CustomerId = o.CustomerId,
-                CustomerName = o.Customer != null ? o.Customer.Name : "Unknown",
-                OrderDate = o.OrderDate,
-                TotalAmount = o.TotalAmount,
-                Status = o.Status
-            }).ToList();
+            // 3. Apply Server-Side Pagination
+            int pageSize = 5;
+            if (pageNumber < 1) pageNumber = 1;
 
-            // 3. Calculate Global Statistics using LINQ
+            int totalItems = await query.CountAsync();
+            int totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+            if (totalPages < 1) totalPages = 1;
+            if (pageNumber > totalPages) pageNumber = totalPages;
+
+            List<OrderResponseDto> ordersList;
+            if (showTop5)
+            {
+                ordersList = await query.ToListAsync();
+                viewModel.CurrentPage = 1;
+                viewModel.TotalPages = 1;
+                viewModel.PageSize = 5;
+            }
+            else
+            {
+                ordersList = await query
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+                
+                viewModel.CurrentPage = pageNumber;
+                viewModel.TotalPages = totalPages;
+                viewModel.PageSize = pageSize;
+            }
+
+            viewModel.Orders = ordersList;
+
+            // 4. Calculate Global Statistics using LINQ
             
             // LINQ: Count()
             viewModel.TotalOrders = await _context.Orders.CountAsync();

@@ -19,6 +19,13 @@ namespace OrderManagementSystem.Models
         public string StatusFilter { get; set; } = string.Empty;
         public bool ShowTop5 { get; set; }
 
+        // Pagination
+        public int CurrentPage { get; set; }
+        public int TotalPages { get; set; }
+        public int PageSize { get; set; }
+        public bool HasPreviousPage => CurrentPage > 1;
+        public bool HasNextPage => CurrentPage < TotalPages;
+
         // Active LINQ Query description and code for report/demo
         public string ActiveLinqDesc { get; set; } = string.Empty;
         public string ActiveLinqCode { get; set; } = string.Empty;

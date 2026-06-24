@@ -25,11 +25,11 @@ sequenceDiagram
     Route->>Ctrl: Kích hoạt Action tương ứng (VD: Index())
     
     rect rgb(240, 245, 255)
-        note over Ctrl, EF: Controller chuẩn bị ViewModel & thực hiện LINQ
-        Ctrl->>EF: Yêu cầu truy vấn LINQ (Include, Where, GroupBy, Sum...)
-        EF->>DB: Biên dịch LINQ thành câu lệnh SQL & thực thi
+        note over Ctrl, EF: Controller chuẩn bị ViewModel, thực hiện LINQ & Phân trang
+        Ctrl->>EF: Yêu cầu truy vấn LINQ (Join, Where, Skip, Take, GroupBy, Sum...)
+        EF->>DB: Biên dịch LINQ thành câu lệnh SQL JOIN & thực thi
         DB-->>EF: Trả về kết quả thô
-        EF-->>Ctrl: Bản đồ kết quả vào DTOs / Entities
+        EF-->>Ctrl: Bản đồ kết quả vào DTOs / ViewModel
     end
     
     Ctrl->>View: Truyền dữ liệu qua Model (OrdersViewModel)
@@ -44,41 +44,47 @@ sequenceDiagram
 
 ### Luồng nghiệp vụ chi tiết của từng chức năng:
 
-1. **Hiển thị mặc định (Xem danh sách đơn hàng)**:
+1. **Hiển thị mặc định (Xem danh sách đơn hàng có phân trang)**:
    - Người dùng truy cập `http://localhost:5093`.
    - Bộ định tuyến chuyển tiếp đến `OrdersController.Index`.
-   - Controller lấy danh sách tất cả các khách hàng để đổ vào Dropdown tạo đơn hàng mới.
-   - Controller truy vấn danh sách đơn hàng bằng EF Core, nạp kèm dữ liệu khách hàng tương ứng (Eager Loading bằng lệnh `.Include(o => o.Customer)`).
-   - Dữ liệu được sắp xếp giảm dần theo thời gian tạo đơn hàng (`.OrderByDescending(o => o.OrderDate)`).
+   - Controller lấy danh sách tất cả các khách hàng (15 khách hàng Việt Nam mẫu) để đổ vào Dropdown tạo đơn hàng mới.
+   - Controller truy vấn danh sách đơn hàng bằng EF Core sử dụng **LINQ Query Syntax** và thực hiện **Explicit Join** (liên kết rõ ràng với bảng Customers thông qua từ khóa `join`).
+   - Mặc định trang sẽ hiển thị **Trang 1** với tối đa **5 đơn hàng** mới nhất (sắp xếp giảm dần theo thời gian tạo đơn hàng).
+   - Logic phân trang được xử lý hoàn toàn trên Server sử dụng hàm LINQ `.Skip((pageNumber - 1) * pageSize).Take(pageSize)`.
    - Các chỉ số thống kê (Tổng doanh thu đơn hàng đã hoàn thành, tổng số đơn hàng, số lượng đơn theo từng trạng thái) được tính toán bằng các hàm LINQ (`SumAsync`, `CountAsync`, `GroupBy`).
-   - Mọi thông tin được chuyển vào `OrdersViewModel` rồi gửi đến `Index.cshtml` để render ra giao diện.
+   - Mọi thông tin được chuyển vào `OrdersViewModel` (bao gồm cả dữ liệu trang hiện tại, tổng số trang) rồi gửi đến `Index.cshtml` để render ra giao diện.
 
-2. **Tìm kiếm & Lọc (Search & Filter)**:
+2. **Chuyển trang (Page Navigation)**:
+   - Khi bấm nút **Next** hoặc **Previous** ở chân bảng đơn hàng, trình duyệt gửi yêu cầu `GET` lên server kèm tham số trang mới, ví dụ: `/Orders?pageNumber=2`.
+   - Controller tiếp nhận tham số `pageNumber`, tính toán chỉ số bỏ qua thích hợp bằng `.Skip()`, lấy số lượng bản ghi bằng `.Take()`, và tải lại trang hiển thị đúng trang đó.
+
+3. **Tìm kiếm & Lọc (Search & Filter)**:
    - Khi nhập từ khóa tìm kiếm (tên khách hàng) hoặc chọn một trạng thái trong Dropdown, một Form HTML dạng **GET** được gửi lên server.
-   - Form này chứa tham số truy vấn trên thanh địa chỉ, ví dụ: `?searchString=Alice` hoặc `?statusFilter=Pending`.
+   - Form này chứa tham số truy vấn trên thanh địa chỉ, ví dụ: `?searchString=Nguyễn` hoặc `?statusFilter=Pending`.
    - Action `Index` nhận các tham số này, áp dụng bộ lọc LINQ `.Where(...)` động tương ứng vào truy vấn và tải lại trang hiển thị kết quả lọc. Đồng thời, khung hiển thị câu lệnh LINQ ở góc phải sẽ tự động hiển thị câu lệnh LINQ tương ứng giúp giảng viên/người xem hiểu được cách thức lọc dữ liệu trong C#.
+   - Trạng thái lọc và tìm kiếm được bảo lưu (preserve) trên các nút chuyển trang để không bị mất bộ lọc khi chuyển qua lại giữa các trang.
 
-3. **Xem Top 5 Đơn hàng có Giá trị Lớn nhất (Top 5 Orders)**:
+4. **Xem Top 5 Đơn hàng có Giá trị Lớn nhất (Top 5 Orders)**:
    - Người dùng bấm nút "Top 5 Orders", trình duyệt gửi yêu cầu `GET /Orders?showTop5=true`.
    - LINQ áp dụng phương thức `.OrderByDescending(o => o.TotalAmount).Take(5)`.
    - Giao diện tải lại chỉ hiển thị tối đa 5 đơn hàng đắt nhất, đồng thời khung LINQ hiển thị đoạn code tương ứng.
 
-4. **Tạo Đơn hàng Mới (Create)**:
+5. **Tạo Đơn hàng Mới (Create)**:
    - Người dùng bấm nút "+ Create New Order", mở Modal biểu mẫu nhập liệu.
    - Khi điền xong dữ liệu và bấm "Save Order", trình duyệt gửi một yêu cầu **POST** đến `/Orders/Create`.
    - Controller nhận dữ liệu, kiểm tra tính hợp lệ bằng các logic nghiệp vụ (Kiểm tra xem CustomerId có tồn tại trong DB không bằng `.AnyAsync()`, kiểm tra số tiền nhập vào có > 0 không).
    - Nếu hợp lệ, đơn hàng mới được thêm vào DB bằng phương thức `_context.Orders.Add()` và lưu lại qua `_context.SaveChangesAsync()`.
    - Sau đó, Controller gán thông báo thành công vào bộ nhớ tạm `TempData["SuccessMessage"]` và thực hiện chuyển hướng (`RedirectToAction(nameof(Index))`) để tải lại trang chủ sạch sẽ.
 
-5. **Cập nhật Trạng thái Đơn hàng (Update Status)**:
+6. **Cập nhật Trạng thái Đơn hàng (Update Status)**:
    - Người dùng đổi giá trị trong Dropdown trạng thái của một dòng trong bảng đơn hàng.
    - Sự kiện đổi giá trị kích hoạt trình duyệt tự động gửi (submit) một Form HTML dạng **POST** ngầm chứa ID đơn hàng và trạng thái mới gửi đến `/Orders/UpdateStatus`.
    - Controller tìm đơn hàng trong cơ sở dữ liệu bằng `.FirstOrDefaultAsync(o => o.Id == id)`.
    - Cập nhật thuộc tính `Status` của thực thể đó và lưu lại.
    - Chuyển hướng về trang chủ và hiển thị banner thông báo cập nhật thành công.
 
-6. **Xóa Đơn hàng (Delete)**:
-   - Người dùng nhấn nút "Delete" ở cột hành động, trình duyệt yêu cầu xác nhận xác nhận xóa thông qua Javascript popup.
+7. **Xóa Đơn hàng (Delete)**:
+   - Người dùng nhấn nút "Delete" ở cột hành động, trình duyệt yêu cầu xác nhận xóa thông qua Javascript popup.
    - Nếu chọn Yes, Form POST được gửi lên `/Orders/Delete`.
    - Controller thực hiện tìm đơn hàng, gọi lệnh xóa `_context.Orders.Remove(order)`, lưu thay đổi vào DB và chuyển hướng về trang chủ hiển thị thông báo.
 
@@ -130,30 +136,13 @@ using (var scope = app.Services.CreateScope())
 ```
 * **Ý nghĩa**:
   - Khối `using` tạo ra một phạm vi vòng đời tạm thời để lấy dịch vụ `OrderDbContext` ra một cách an toàn.
-  - `EnsureCreated()` giúp sinh viên không cần chạy lệnh Migration thủ công (`Add-Migration` / `Update-Database`), cơ sở dữ liệu sẽ tự động được sinh ra ngay khi chạy chương trình lần đầu tiên, giảm thiểu lỗi thiết lập môi trường.
-
-```csharp
-// Cấu hình Pipeline xử lý yêu cầu HTTP
-app.UseHttpsRedirection();
-app.UseStaticFiles(); // Cho phép đọc các file tĩnh trong thư mục wwwroot (như css/styles.css, các file JS tĩnh)
-app.UseRouting();
-
-// Cấu hình đường đi mặc định của MVC: Nếu truy cập trang chủ (/), hệ thống tự động hướng tới OrdersController và chạy Action Index
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Orders}/{action=Index}/{id?}");
-
-app.Run();
-```
-* **Ý nghĩa**:
-  - `UseStaticFiles()` cực kỳ quan trọng để trình duyệt tải được file stylesheet `wwwroot/css/styles.css`.
-  - `MapControllerRoute` là trái tim điều phối của MVC, thiết lập quy tắc URL thân thiện cho người dùng.
+  - `EnsureCreated()` giúp cơ sở dữ liệu sẽ tự động được sinh ra ngay khi chạy chương trình lần đầu tiên, giảm đổi lỗi thiết lập môi trường cho sinh viên.
 
 ---
 
 ### 2.2 CƠ SỞ DỮ LIỆU VÀ SEED DATA (`Data/OrderDbContext.cs`)
 
-Lớp cầu nối giữa mã nguồn C# và cơ sở dữ liệu SQL Server.
+Lớp cầu nối chứa định nghĩa các bảng và dữ liệu mẫu tiếng Việt của 15 người dùng Việt Nam.
 
 ```csharp
 // Data/OrderDbContext.cs
@@ -172,10 +161,8 @@ namespace OrderManagementSystem.Data
         public DbSet<Customer> Customers { get; set; } = null!;
         public DbSet<Order> Orders { get; set; } = null!;
 ```
-* **Ý nghĩa**:
-  - `DbSet<Customer>` ánh xạ lớp thực thể C# `Customer` thành bảng `Customers` trong SQL Server.
-  - `DbSet<Order>` ánh xạ thực thể `Order` thành bảng `Orders` trong SQL Server.
 
+Cấu hình các quan hệ khóa ngoại và nạp 15 người dùng Việt Nam:
 ```csharp
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -188,82 +175,48 @@ namespace OrderManagementSystem.Data
                 .HasForeignKey(o => o.CustomerId)    // Khóa ngoại liên kết là CustomerId trong bảng Orders
                 .OnDelete(DeleteBehavior.Cascade);    // Khi xóa một Customer, toàn bộ đơn hàng liên quan sẽ bị xóa tự động (Cascade Delete)
 
-            // Cấu hình kiểu dữ liệu tiền tệ chính xác trong DB cho TotalAmount (18 chữ số, 2 chữ số thập phân sau dấu phẩy)
+            // Cấu hình kiểu dữ liệu tiền tệ chính xác trong DB cho TotalAmount
             modelBuilder.Entity<Order>()
                 .Property(o => o.TotalAmount)
                 .HasPrecision(18, 2);
-```
-* **Ý nghĩa**:
-  - Thiết lập khóa ngoại và hành vi xóa móc nối (Cascade Delete) nhằm bảo đảm toàn vẹn dữ liệu trong CSDL.
-  - Cấu hình độ chính xác decimal giúp tránh các lỗi làm tròn số tiền của hóa đơn khi thao tác số học lớn.
 
-```csharp
-            // Nạp dữ liệu mẫu cho khách hàng (Customer Seed Data)
+            // Nạp dữ liệu mẫu cho 15 khách hàng người Việt (Customer Seed Data)
             modelBuilder.Entity<Customer>().HasData(
-                new Customer { Id = 1, Name = "Alice Smith", Email = "alice.smith@example.com" },
-                new Customer { Id = 2, Name = "Bob Jones", Email = "bob.jones@example.com" },
-                new Customer { Id = 3, Name = "Charlie Brown", Email = "charlie.brown@example.com" },
-                new Customer { Id = 4, Name = "David Miller", Email = "david.miller@example.com" },
-                new Customer { Id = 5, Name = "Eva Green", Email = "eva.green@example.com" }
+                new Customer { Id = 1, Name = "Nguyễn Văn An", Email = "an.nguyen@example.com" },
+                new Customer { Id = 2, Name = "Trần Thị Bình", Email = "binh.tran@example.com" },
+                new Customer { Id = 3, Name = "Lê Hoàng Cường", Email = "cuong.le@example.com" },
+                new Customer { Id = 4, Name = "Phạm Minh Dũng", Email = "dung.pham@example.com" },
+                new Customer { Id = 5, Name = "Vũ Thị Em", Email = "em.vu@example.com" },
+                new Customer { Id = 6, Name = "Hoàng Văn Giang", Email = "giang.hoang@example.com" },
+                new Customer { Id = 7, Name = "Bùi Thị Hương", Email = "huong.bui@example.com" },
+                new Customer { Id = 8, Name = "Võ Văn Hải", Email = "hai.vo@example.com" },
+                new Customer { Id = 9, Name = "Đặng Thị Khánh", Email = "khanh.dang@example.com" },
+                new Customer { Id = 10, Name = "Đỗ Minh Long", Email = "long.do@example.com" },
+                new Customer { Id = 11, Name = "Ngô Thị Mai", Email = "mai.ngo@example.com" },
+                new Customer { Id = 12, Name = "Phan Văn Nam", Email = "nam.phan@example.com" },
+                new Customer { Id = 13, Name = "Nguyễn Thị Quỳnh", Email = "quynh.nguyen@example.com" },
+                new Customer { Id = 14, Name = "Trần Văn Sơn", Email = "son.tran@example.com" },
+                new Customer { Id = 15, Name = "Lê Thị Tú", Email = "tu.le@example.com" }
             );
 
-            // Nạp dữ liệu mẫu cho các đơn hàng tương ứng (Order Seed Data)
+            // Nạp dữ liệu mẫu cho 15 đơn hàng mẫu (Order Seed Data) với các giá trị khác biệt
             modelBuilder.Entity<Order>().HasData(
-                new Order { Id = 1, CustomerId = 1, OrderDate = DateTime.UtcNow.AddDays(-10), TotalAmount = 150000, Status = "Completed" },
-                new Order { Id = 2, CustomerId = 2, OrderDate = DateTime.UtcNow.AddDays(-8), TotalAmount = 350000, Status = "Completed" },
-                new Order { Id = 3, CustomerId = 1, OrderDate = DateTime.UtcNow.AddDays(-6), TotalAmount = 1200000, Status = "Processing" },
+                new Order { Id = 1, CustomerId = 1, OrderDate = DateTime.UtcNow.AddDays(-15), TotalAmount = 150000, Status = "Completed" },
+                new Order { Id = 2, CustomerId = 2, OrderDate = DateTime.UtcNow.AddDays(-14), TotalAmount = 350000, Status = "Completed" },
+                new Order { Id = 3, CustomerId = 3, OrderDate = DateTime.UtcNow.AddDays(-13), TotalAmount = 1200000, Status = "Processing" },
                 // ...
             );
         }
     }
 }
 ```
-* **Ý nghĩa**:
-  - Dữ liệu mẫu này được tự động chèn vào bảng ngay khi tạo DB để người dùng/giảng viên thấy ngay danh sách đơn hàng đã điền sẵn thông tin trực quan khi vừa khởi động ứng dụng.
 
 ---
 
 ### 2.3 CÁC LỚP MÔ HÌNH VÀ DỰ LIỆU (MODELS & VIEWMODELS)
 
-#### Thực thể Khách hàng (`Models/Customer.cs`)
-```csharp
-namespace OrderManagementSystem.Models
-{
-    public class Customer
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-
-        // Thuộc tính điều hướng biểu thị một khách hàng có một danh sách đơn hàng
-        public ICollection<Order> Orders { get; set; } = new List<Order>();
-    }
-}
-```
-
-#### Thực thể Đơn hàng (`Models/Order.cs`)
-```csharp
-using System.Text.Json.Serialization;
-
-namespace OrderManagementSystem.Models
-{
-    public class Order
-    {
-        public int Id { get; set; }
-        public int CustomerId { get; set; }
-        public DateTime OrderDate { get; set; } = DateTime.UtcNow;
-        public decimal TotalAmount { get; set; }
-        public string Status { get; set; } = "Pending"; // Pending, Processing, Completed, Cancelled
-
-        // Thuộc tính điều hướng liên kết ngược lại thực thể Customer
-        [JsonIgnore]
-        public Customer? Customer { get; set; }
-    }
-}
-```
-
 #### Mô hình hiển thị giao diện (`Models/OrdersViewModel.cs`)
-Đây là lớp dữ liệu đặc thù gom tất cả thông tin mà trang HTML `Index.cshtml` cần để hiển thị.
+Được cập nhật thêm các thuộc tính phân trang.
 
 ```csharp
 using System.Collections.Generic;
@@ -282,10 +235,17 @@ namespace OrderManagementSystem.Models
         public int TotalOrders { get; set; }
         public Dictionary<string, int> StatusStats { get; set; } = new Dictionary<string, int>();
 
-        // Giữ lại trạng thái lọc của thanh tìm kiếm để hiển thị đúng dữ liệu đang chọn trên giao diện
+        // Giữ lại trạng thái lọc của thanh tìm kiếm
         public string SearchString { get; set; } = string.Empty;
         public string StatusFilter { get; set; } = string.Empty;
         public bool ShowTop5 { get; set; }
+
+        // Các thuộc tính phân trang (Pagination Properties)
+        public int CurrentPage { get; set; }
+        public int TotalPages { get; set; }
+        public int PageSize { get; set; }
+        public bool HasPreviousPage => CurrentPage > 1;
+        public bool HasNextPage => CurrentPage < TotalPages;
 
         // Biến lưu trữ chuỗi mô tả và chuỗi code LINQ đang chạy để hiển thị trực quan lên góc phải giao diện
         public string ActiveLinqDesc { get; set; } = string.Empty;
@@ -293,22 +253,21 @@ namespace OrderManagementSystem.Models
     }
 }
 ```
-* **Ý nghĩa**:
-  - Việc gom nhóm này giúp View hoạt động kiểu "Strongly-typed" (có kiểu dữ liệu tường minh), tránh sử dụng các đối tượng lỏng lẻo như `ViewBag` hay `ViewData` vốn dễ gây ra lỗi đánh máy trong mã Razor.
 
 ---
 
 ### 2.4 BỘ ĐIỀU KHIỂN CHÍNH (`Controllers/OrdersController.cs`)
 
-Đây là nơi chứa toàn bộ logic xử lý chính của chương trình.
+Đây là nơi thực thi **LINQ Query Syntax**, **Explicit Join**, và **Server-side Pagination**.
 
-#### 1. Hành động tải trang chủ và thực thi LINQ (`Index`)
+#### Hành động Index:
 ```csharp
+        // MVC GET: / or /Orders
         [HttpGet]
         [Route("")]
         [Route("Orders")]
         [Route("Orders/Index")]
-        public async Task<IActionResult> Index(string searchString, string statusFilter, bool showTop5 = false, string highlightLinqKey = "")
+        public async Task<IActionResult> Index(string searchString, string statusFilter, bool showTop5 = false, string highlightLinqKey = "", int pageNumber = 1)
         {
             var viewModel = new OrdersViewModel
             {
@@ -317,7 +276,7 @@ namespace OrderManagementSystem.Models
                 ShowTop5 = showTop5
             };
 
-            // 1. LINQ: Tải danh sách khách hàng xếp theo bảng chữ cái để phục vụ dropdown tạo đơn hàng
+            // 1. Fetch Customers for the Creation Dropdown
             viewModel.Customers = await _context.Customers
                 .OrderBy(c => c.Name)
                 .Select(c => new CustomerDto
@@ -327,178 +286,150 @@ namespace OrderManagementSystem.Models
                     Email = c.Email
                 })
                 .ToListAsync();
-```
 
-Tiếp theo, xây dựng câu truy vấn lọc động dựa trên tham số truyền vào:
-```csharp
-            // 2. Tạo câu lệnh truy vấn thô liên kết thông tin khách hàng (Include - Eager Loading)
-            IQueryable<Order> query = _context.Orders.Include(o => o.Customer);
+            // 2. LINQ Query Syntax & Explicit Join: Kết nối bảng Orders và Customers rõ ràng bằng từ khóa join
+            var query = from o in _context.Orders
+                        join c in _context.Customers on o.CustomerId equals c.Id
+                        select new OrderResponseDto
+                        {
+                            Id = o.Id,
+                            CustomerId = o.CustomerId,
+                            CustomerName = c.Name, // Lấy từ bảng Customers đã liên kết
+                            OrderDate = o.OrderDate,
+                            TotalAmount = o.TotalAmount,
+                            Status = o.Status
+                        };
 
+            // Kiểm tra trạng thái và áp dụng bộ lọc LINQ
             if (showTop5)
             {
-                // LINQ: Sắp xếp giảm dần theo doanh thu và lấy ra 5 bản ghi lớn nhất
                 query = query.OrderByDescending(o => o.TotalAmount).Take(5);
 
-                viewModel.ActiveLinqDesc = "Sort all orders descending by TotalAmount and retrieve the first 5 records.";
-                viewModel.ActiveLinqCode = "var orders = await _context.Orders\n    .Include(o => o.Customer)\n    .OrderByDescending(o => o.TotalAmount)\n    .Take(5)\n    .ToListAsync();";
+                viewModel.ActiveLinqDesc = "LINQ Query Syntax & Join: Retrieve the top 5 highest orders by TotalAmount.";
+                viewModel.ActiveLinqCode = "var query = from o in _context.Orders\n" +
+                                            "            join c in _context.Customers on o.CustomerId equals c.Id\n" +
+                                            "            orderby o.TotalAmount descending\n" +
+                                            "            select new OrderResponseDto {\n" +
+                                            "                Id = o.Id, CustomerId = o.CustomerId, CustomerName = c.Name,\n" +
+                                            "                OrderDate = o.OrderDate, TotalAmount = o.TotalAmount, Status = o.Status\n" +
+                                            "            };\n" +
+                                            "var top5Orders = await query.Take(5).ToListAsync();";
             }
             else if (!string.IsNullOrWhiteSpace(statusFilter))
             {
-                // LINQ: Lọc theo trạng thái và sắp xếp theo ngày mới nhất
                 query = query.Where(o => o.Status == statusFilter).OrderByDescending(o => o.OrderDate);
 
-                viewModel.ActiveLinqDesc = $"Filter orders that match the specified status '{statusFilter}'.";
-                viewModel.ActiveLinqCode = $"var orders = await _context.Orders\n    .Include(o => o.Customer)\n    .Where(o => o.Status == \"{statusFilter}\")\n    .OrderByDescending(o => o.OrderDate)\n    .ToListAsync();";
+                viewModel.ActiveLinqDesc = $"LINQ Query Syntax, Join & Filter: Retrieve orders with status '{statusFilter}'.";
+                viewModel.ActiveLinqCode = "var query = from o in _context.Orders\n" +
+                                            "            join c in _context.Customers on o.CustomerId equals c.Id\n" +
+                                            $"            where o.Status == \"{statusFilter}\"\n" +
+                                            "            orderby o.OrderDate descending\n" +
+                                            "            select new OrderResponseDto {\n" +
+                                            "                Id = o.Id, CustomerId = o.CustomerId, CustomerName = c.Name,\n" +
+                                            "                OrderDate = o.OrderDate, TotalAmount = o.TotalAmount, Status = o.Status\n" +
+                                            "            };";
             }
             else if (!string.IsNullOrWhiteSpace(searchString))
             {
-                // LINQ: Lọc theo tên khách hàng chứa từ khóa tìm kiếm (bằng Contains tương đương LIKE '%keyword%' trong SQL)
-                query = query.Where(o => o.Customer != null && o.Customer.Name.Contains(searchString)).OrderByDescending(o => o.OrderDate);
+                // Lọc theo tên từ kết quả đã JOIN
+                query = query.Where(o => o.CustomerName.Contains(searchString)).OrderByDescending(o => o.OrderDate);
 
-                viewModel.ActiveLinqDesc = $"Search for orders where the related customer's name contains '{searchString}'.";
-                viewModel.ActiveLinqCode = $"var orders = await _context.Orders\n    .Include(o => o.Customer)\n    .Where(o => o.Customer.Name.Contains(\"{searchString}\"))\n    .OrderByDescending(o => o.OrderDate)\n    .ToListAsync();";
+                viewModel.ActiveLinqDesc = $"LINQ Query Syntax, Join & Search: Retrieve orders where customer name contains '{searchString}'.";
+                viewModel.ActiveLinqCode = "var query = from o in _context.Orders\n" +
+                                            "            join c in _context.Customers on o.CustomerId equals c.Id\n" +
+                                            $"            where c.Name.Contains(\"{searchString}\")\n" +
+                                            "            orderby o.OrderDate descending\n" +
+                                            "            select new OrderResponseDto {\n" +
+                                            "                Id = o.Id, CustomerId = o.CustomerId, CustomerName = c.Name,\n" +
+                                            "                OrderDate = o.OrderDate, TotalAmount = o.TotalAmount, Status = o.Status\n" +
+                                            "            };";
             }
             else
             {
-                // LINQ: Luồng mặc định hiển thị toàn bộ đơn hàng mới nhất
                 query = query.OrderByDescending(o => o.OrderDate);
 
-                viewModel.ActiveLinqDesc = "Retrieve all orders, eagerly load the related Customer details, and sort by date descending.";
-                viewModel.ActiveLinqCode = "var orders = await _context.Orders\n    .Include(o => o.Customer)\n    .OrderByDescending(o => o.OrderDate)\n    .ToListAsync();";
+                viewModel.ActiveLinqDesc = "LINQ Query Syntax & Join: Retrieve all orders, joining the related Customers, sorted by date descending.";
+                viewModel.ActiveLinqCode = "var query = from o in _context.Orders\n" +
+                                            "            join c in _context.Customers on o.CustomerId equals c.Id\n" +
+                                            "            orderby o.OrderDate descending\n" +
+                                            "            select new OrderResponseDto {\n" +
+                                            "                Id = o.Id, CustomerId = o.CustomerId, CustomerName = c.Name,\n" +
+                                            "                OrderDate = o.OrderDate, TotalAmount = o.TotalAmount, Status = o.Status\n" +
+                                            "            };";
             }
 
-            // Thực thi truy vấn xuống SQL Server
-            var ordersList = await query.ToListAsync();
-            viewModel.Orders = ordersList.Select(o => new OrderResponseDto
+            // 3. Phân trang phía Server (Server-Side Pagination)
+            int pageSize = 5;
+            if (pageNumber < 1) pageNumber = 1;
+
+            int totalItems = await query.CountAsync();
+            int totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+            if (totalPages < 1) totalPages = 1;
+            if (pageNumber > totalPages) pageNumber = totalPages;
+
+            List<OrderResponseDto> ordersList;
+            if (showTop5)
             {
-                Id = o.Id,
-                CustomerId = o.CustomerId,
-                CustomerName = o.Customer != null ? o.Customer.Name : "Unknown",
-                OrderDate = o.OrderDate,
-                TotalAmount = o.TotalAmount,
-                Status = o.Status
-            }).ToList();
-```
-
-Tính toán các số liệu thống kê ở hàng trên cùng của giao diện:
-```csharp
-            // 3. Tính toán thống kê toàn cục sử dụng LINQ
-            
-            // LINQ: Đếm tổng số đơn hàng hiện tại (.CountAsync())
-            viewModel.TotalOrders = await _context.Orders.CountAsync();
-
-            // LINQ: Lọc đơn hàng hoàn thành (Completed) và tính tổng tiền (.SumAsync())
-            viewModel.TotalRevenue = await _context.Orders
-                .Where(o => o.Status == "Completed")
-                .SumAsync(o => o.TotalAmount);
-
-            // LINQ: Gom nhóm theo trạng thái và đếm số lượng mỗi nhóm (.GroupBy())
-            var stats = await _context.Orders
-                .GroupBy(o => o.Status)
-                .Select(g => new
-                {
-                    Status = g.Key,
-                    Count = g.Count()
-                })
-                .ToListAsync();
-
-            viewModel.StatusStats = stats.ToDictionary(s => s.Status, s => s.Count);
-```
-* **Ý nghĩa**:
-  - `query` được khai báo dạng `IQueryable` giúp trì hoãn việc chạy lệnh SQL (Deferred Execution). Nghĩa là các câu lệnh `.Where()`, `.OrderByDescending()` được cộng dồn lại thành một bộ lọc đầy đủ, sau đó khi gọi `ToListAsync()` thì hệ thống mới chạy duy nhất một câu lệnh SQL hoàn chỉnh xuống DB, tối ưu hóa hiệu năng hệ thống.
-
-#### 2. Hành động tạo đơn hàng mới (`Create`)
-```csharp
-        [HttpPost]
-        [Route("Orders/Create")]
-        public async Task<IActionResult> Create(int customerId, decimal totalAmount, string status)
-        {
-            // LINQ: Sử dụng AnyAsync() để kiểm tra nhanh xem ID khách hàng nhập vào có tồn tại thực sự không
-            var customerExists = await _context.Customers.AnyAsync(c => c.Id == customerId);
-            if (!customerExists)
+                ordersList = await query.ToListAsync();
+                viewModel.CurrentPage = 1;
+                viewModel.TotalPages = 1;
+                viewModel.PageSize = 5;
+            }
+            else
             {
-                TempData["ErrorMessage"] = "Customer does not exist.";
-                return RedirectToAction(nameof(Index));
+                // Bỏ qua trang trước bằng Skip và lấy số lượng giới hạn bằng Take
+                ordersList = await query
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+                
+                viewModel.CurrentPage = pageNumber;
+                viewModel.TotalPages = totalPages;
+                viewModel.PageSize = pageSize;
             }
 
-            if (totalAmount <= 0)
-            {
-                TempData["ErrorMessage"] = "Amount must be greater than 0.";
-                return RedirectToAction(nameof(Index));
-            }
-
-            var newOrder = new Order
-            {
-                CustomerId = customerId,
-                TotalAmount = totalAmount,
-                Status = status,
-                OrderDate = DateTime.UtcNow
-            };
-
-            _context.Orders.Add(newOrder); // Đưa vào hàng chờ thêm mới của EF Core
-            await _context.SaveChangesAsync(); // Đồng bộ và lưu vĩnh viễn vào DB SQL Server
-
-            TempData["SuccessMessage"] = $"Order #{newOrder.Id} created successfully!";
-            return RedirectToAction(nameof(Index));
-        }
+            viewModel.Orders = ordersList;
+            // ... (Tính toán thống kê toàn cục giữ nguyên)
 ```
-* **Ý nghĩa**:
-  - Sử dụng `TempData` để lưu trữ dữ liệu thông báo ngắn hạn qua một chu kỳ Request mới (sau khi chuyển hướng trang bằng `RedirectToAction`).
 
 ---
 
 ### 2.5 GIAO DIỆN HIỂN THỊ RAZOR VIEW (`Views/Orders/Index.cshtml`)
 
-Giao diện được render động trên Server. Hãy xem phân đoạn quan trọng kết nối C# và HTML.
+Giao diện hiển thị bảng và thanh chuyển hướng phân trang.
 
-#### Hiển thị thông báo TempData:
+#### Thanh phân trang trong `card-footer`:
 ```html
-@if (TempData["SuccessMessage"] != null)
-{
-    <div class="alert alert-success">
-        @TempData["SuccessMessage"]
-    </div>
-}
-```
+<div class="card-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+    <span>Showing: @Model.Orders.Count order(s)</span>
+    @if (!Model.ShowTop5 && Model.TotalPages > 1)
+    {
+        <div class="pagination-buttons" style="display: flex; gap: 8px; align-items: center;">
+            <!-- Nút trang trước (Previous) -->
+            @if (Model.HasPreviousPage)
+            {
+                <a href="/Orders?pageNumber=@(Model.CurrentPage - 1)&searchString=@Model.SearchString&statusFilter=@Model.StatusFilter" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.85rem; text-decoration: none; display: inline-block;">&laquo; Previous</a>
+            }
+            else
+            {
+                <span class="btn btn-secondary disabled" style="padding: 4px 10px; font-size: 0.85rem; opacity: 0.5; pointer-events: none; display: inline-block;">&laquo; Previous</span>
+            }
 
-#### Thẻ hiển thị thống kê Tổng số tiền (LINQ Sum):
-```html
-<a href="/Orders?highlightLinqKey=revenue" class="summary-box">
-    <span class="summary-title">Total Revenue (Completed)</span>
-    <strong class="text-success">@Model.TotalRevenue.ToString("N0") ₫</strong>
-</a>
-```
-* Bấm vào ô thống kê doanh thu sẽ kích hoạt tham số `highlightLinqKey=revenue` trên URL, báo cho Controller biết để in ra đoạn code LINQ của phần tính tổng Sum lên bảng giải thích.
+            <span style="font-size: 0.85rem;">Page <strong>@Model.CurrentPage</strong> of @Model.TotalPages</span>
 
-#### Duyệt danh sách đơn hàng đổ dữ liệu vào bảng (Razor foreach loop):
-```html
-@foreach (var order in Model.Orders)
-{
-    <tr>
-        <td><span class="order-id-badge">#@order.Id</span></td>
-        <td>
-            <div class="customer-name-cell">@order.CustomerName</div>
-        </td>
-        <td>
-            <span class="badge badge-@order.Status.ToLower()">@order.Status</span>
-        </td>
-        <td>
-            <!-- Form POST cập nhật trạng thái nhanh bằng Dropdown -->
-            <form method="post" action="/Orders/UpdateStatus" style="display:inline;">
-                <input type="hidden" name="id" value="@order.Id" />
-                <select name="status" onchange="this.form.submit()">
-                    <option value="Pending" selected="@(order.Status == "Pending" ? "selected" : null)">Pending</option>
-                    <option value="Processing" selected="@(order.Status == "Processing" ? "selected" : null)">Processing</option>
-                    <option value="Completed" selected="@(order.Status == "Completed" ? "selected" : null)">Completed</option>
-                    <option value="Cancelled" selected="@(order.Status == "Cancelled" ? "selected" : null)">Cancelled</option>
-                </select>
-            </form>
-        </td>
-    </tr>
-}
+            <!-- Nút trang tiếp theo (Next) -->
+            @if (Model.HasNextPage)
+            {
+                <a href="/Orders?pageNumber=@(Model.CurrentPage + 1)&searchString=@Model.SearchString&statusFilter=@Model.StatusFilter" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.85rem; text-decoration: none; display: inline-block;">Next &raquo;</a>
+            }
+            else
+            {
+                <span class="btn btn-secondary disabled" style="padding: 4px 10px; font-size: 0.85rem; opacity: 0.5; pointer-events: none; display: inline-block;">Next &raquo;</span>
+            }
+        </div>
+    }
+</div>
 ```
-* **Ý nghĩa**:
-  - Thuộc tính `onchange="this.form.submit()"` trong thẻ `<select>` giúp thực hiện việc tự động gửi form POST lên máy chủ mà không cần viết các đoạn code Javascript gửi dữ liệu AJAX phức tạp. Đúng chuẩn luồng MVC truyền thống.
 
 ---
 
@@ -506,10 +437,11 @@ Giao diện được render động trên Server. Hãy xem phân đoạn quan tr
 
 | Chức năng | Phép truy vấn LINQ | Giải thích ý nghĩa |
 | :--- | :--- | :--- |
-| **Eager Loading** | `query.Include(o => o.Customer)` | Liên kết bảng Orders với bảng Customers để lấy tên khách hàng trong cùng 1 câu lệnh SQL truy vấn |
-| **Lọc theo trạng thái** | `query.Where(o => o.Status == statusFilter)` | Chỉ lấy ra các đơn hàng thỏa mãn điều kiện trạng thái truyền vào |
-| **Tìm kiếm từ khóa** | `query.Where(o => o.Customer.Name.Contains(searchString))` | Tìm khách hàng có tên chứa từ khóa tìm kiếm (so khớp chuỗi) |
-| **Lấy Top 5 lớn nhất** | `query.OrderByDescending(o => o.TotalAmount).Take(5)` | Sắp xếp giá trị đơn hàng giảm dần và giới hạn lấy 5 bản ghi đầu tiên |
-| **Tính tổng doanh thu**| `_context.Orders.Where(o => o.Status == "Completed").SumAsync(o => o.TotalAmount)` | Tính tổng tiền của tất cả các hóa đơn có trạng thái là đã hoàn tất |
-| **Phân tích số liệu** | `_context.Orders.GroupBy(o => o.Status).Select(g => new { Status = g.Key, Count = g.Count() })` | Gom nhóm đơn hàng theo các trạng thái khác nhau và đếm số lượng bản ghi của mỗi nhóm |
-| **Kiểm tra tồn tại** | `_context.Customers.AnyAsync(c => c.Id == customerId)` | Trả về True/False xem khách hàng đó có tồn tại trong cơ sở dữ liệu để liên kết đơn hàng hay không |
+| **LINQ Query Syntax & Join** | `from o in Orders join c in Customers on o.CustomerId equals c.Id select ...` | Thực hiện kết nối rõ ràng (Explicit Join) giữa 2 bảng để nạp tên khách hàng và map trực tiếp sang DTO |
+| **Lọc theo trạng thái** | `query.Where(o => o.Status == statusFilter)` | Chỉ lấy các đơn hàng thỏa mãn điều kiện trạng thái truyền vào |
+| **Tìm kiếm từ khóa** | `query.Where(o => o.CustomerName.Contains(searchString))` | Tìm khách hàng có tên chứa từ khóa tìm kiếm trên tập kết quả đã JOIN |
+| **Lấy Top 5 lớn nhất** | `query.OrderByDescending(o => o.TotalAmount).Take(5)` | Sắp xếp giá trị đơn hàng giảm dần và giới hạn lấy 5 hóa đơn cao nhất |
+| **Phân trang dữ liệu** | `query.Skip((pageNumber - 1) * pageSize).Take(pageSize)` | Bỏ qua các dòng của trang trước và lấy ra số dòng tương ứng với kích thước trang hiện tại |
+| **Tính tổng doanh thu**| `_context.Orders.Where(o => o.Status == "Completed").SumAsync(o => o.TotalAmount)` | Tính tổng tiền của tất cả các hóa đơn đã hoàn tất |
+| **Phân tích số liệu** | `_context.Orders.GroupBy(o => o.Status).Select(g => new { Status = g.Key, Count = g.Count() })` | Gom nhóm đơn hàng theo các trạng thái khác nhau và đếm số lượng của mỗi nhóm |
+| **Kiểm tra tồn tại** | `_context.Customers.AnyAsync(c => c.Id == customerId)` | Kiểm tra xem mã khách hàng nhập vào khi tạo mới có tồn tại trong CSDL hay không |
