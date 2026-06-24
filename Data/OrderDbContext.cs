@@ -30,11 +30,11 @@ namespace OrderManagementSystem.Data
 
             // Seed Customers
             modelBuilder.Entity<Customer>().HasData(
-                new Customer { Id = 1, Name = "Nguyễn Văn A", Email = "a.nguyen@example.com" },
-                new Customer { Id = 2, Name = "Trần Thị B", Email = "b.tran@example.com" },
-                new Customer { Id = 3, Name = "Lê Hoàng C", Email = "c.le@example.com" },
-                new Customer { Id = 4, Name = "Phạm Minh D", Email = "d.pham@example.com" },
-                new Customer { Id = 5, Name = "Vũ Thị E", Email = "e.vu@example.com" }
+                new Customer { Id = 1, Name = "Alice Smith", Email = "alice.smith@example.com" },
+                new Customer { Id = 2, Name = "Bob Jones", Email = "bob.jones@example.com" },
+                new Customer { Id = 3, Name = "Charlie Brown", Email = "charlie.brown@example.com" },
+                new Customer { Id = 4, Name = "David Miller", Email = "david.miller@example.com" },
+                new Customer { Id = 5, Name = "Eva Green", Email = "eva.green@example.com" }
             );
 
             // Seed Orders
